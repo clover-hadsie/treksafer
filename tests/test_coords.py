@@ -224,3 +224,39 @@ class TestCanadaWideSource:
         # Two of the four fixture fires are OC.
         assert len(fires) == 2
         assert all(f['Status'] == 'OC' for f in fires)
+
+
+class TestFireSorting:
+    """Fires are returned sorted by status priority, then by distance.
+
+    The CA Quebec fixtures give a clean spread: two active (OC) fires at
+    different distances, one managed (BH) and one controlled (UC).
+    """
+
+    QUEBEC_COORDS = (48.50, -72.00)
+
+    def test_sorted_by_status_priority(self):
+        """Higher-priority statuses come first (active, then managed, then controlled)."""
+        ff = FindFires(self.QUEBEC_COORDS, filters={'status': 'all', 'distance': 50})
+        levels = [f['StatusLevel'] for f in ff.nearby()]
+
+        assert levels == sorted(levels)
+        assert levels == [1, 1, 2, 3]  # active, active, managed, controlled
+
+    def test_sorted_by_distance_within_status(self):
+        """Among the two active fires, the nearer one lists first."""
+        ff = FindFires(self.QUEBEC_COORDS, filters={'status': 'active', 'distance': 50})
+        distances = [f['Distance'] for f in ff.nearby()]
+
+        assert distances == sorted(distances)
+
+    def test_priority_outranks_distance(self):
+        """A farther active fire lists before a nearer lower-priority fire."""
+        ff = FindFires(self.QUEBEC_COORDS, filters={'status': 'all', 'distance': 50})
+        fires = ff.nearby()
+
+        active = next(f for f in fires if f['StatusLevel'] == 1 and f['Distance'] > 0)
+        managed = next(f for f in fires if f['StatusLevel'] == 2)
+
+        assert active['Distance'] > managed['Distance']
+        assert fires.index(active) < fires.index(managed)

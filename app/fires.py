@@ -199,6 +199,11 @@ class FindFires:
             if data_file:
                 fires += self.search(fire_perimeters, self.filters, data_file)
 
+        # Sort by status priority (active before managed before controlled),
+        # then by distance within each priority. Fires missing a StatusLevel
+        # sort last, consistent with the filtering default.
+        fires.sort(key=lambda f: (f.get('StatusLevel', float('inf')), f['Distance']))
+
         return fires
 
     def sources_map(self):
